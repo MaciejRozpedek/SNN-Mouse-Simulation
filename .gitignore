@@ -42,3 +42,5 @@
 .vscode/*
 build/*
 
+
+.fake

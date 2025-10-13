@@ -15,84 +15,236 @@ neuron_types:
     starting_u: -14.0
 
 groups:
-  - name: Layer1  # Input layer
-    neurons:
-      - type: RS
-        count: 100
-    external_input: "input_data"
-  - name: Layer2  # Hidden layer
-    neurons:
-      - type: RS
-        count: 200
-      - type: FS
-        count: 50
-  - name: Layer3  # Output layer
-    neurons:
-      - type: RS
-        count: 50
-    action_output: "output_action"
-  - name: Sensory
+  - name: "A" # Main processing area
     subgroups:
-      - name: Vision
+      - name: "1" # Column 1
         subgroups:
-          - name: food
+          - name: "L" # Layers
+            subgroups:
+              - name: "1"
+                neurons:
+                  - type: RS
+                    count: 50
+              - name: "2"
+                neurons:
+                  - type: FS
+                    count: 20
+              - name: "3"
+                neurons:
+                  - type: RS
+                    count: 40
+      - name: "2" # Column 2
+        subgroups:
+          - name: "L" # Layers
+            subgroups:
+              - name: "1"
+                neurons:
+                  - type: RS
+                    count: 50
+              - name: "2"
+                neurons:
+                  - type: FS
+                    count: 20
+              - name: "3" # This column has an extra sub-layer in layer 3
+                subgroups:
+                  - name: "a"
+                    neurons:
+                      - type: RS
+                        count: 25
+                  - name: "b"
+                    neurons:
+                      - type: RS
+                        count: 25
+      - name: "3" # Column 3 (shallower structure)
+        subgroups:
+          - name: "L"
+            subgroups:
+              - name: "1"
+                neurons:
+                  - type: RS
+                    count: 30
+
+  - name: "B" # Secondary processing area
+    subgroups:
+      - name: "1"
+        neurons:
+          - type: FS
+            count: 100
+      - name: "2"
+        neurons:
+          - type: FS
+            count: 100
+
+  - name: "C" # Input/Output Interface
+    subgroups:
+      - name: "In"
+        subgroups:
+          - name: "1"
             neurons:
               - type: RS
-                count: 100
-            external_input: "food_proximity"
-          - name: predator
+                count: 10
+            external_input: "sensory_1"
+          - name: "2"
             neurons:
               - type: RS
-                count: 100
-            external_input: "predator_distance"
+                count: 10
+            external_input: "sensory_2"
+      - name: "Out"
+        subgroups:
+          - name: "1"
+            neurons:
+              - type: RS
+                count: 5
+            action_output: "motor_A"
 
 connections:
-  # Option 1: Probabilistic Full Connectivity
-  - from: Sensory.Vision.food
-    to: Layer2
-    from_type: RS
-    to_type: all
+  # Rule 1: Local inhibition within each layer of each column in A.
+  # The [1] wildcard ensures connections are within the same column (1 or 2).
+  # Layer 2 (FS) inhibits Layer 1 (RS) and Layer 3 (RS) of the same column.
+  - from: A.[1].L.2
+    to: A.[1].L.1
+    from_type: FS
+    to_type: RS
     rule:
       type: probabilistic
       probability: 0.8
     weight:
-      fixed: 2.0
-  # Option 2: One-to-One Mapping
-  - from: Layer1
-    to: Layer2
-    from_type: RS
-    to_type: RS
-    connection_type: one_to_one
-    weight:
-      fixed: 1.5
-  # Option 3: Dense Full Connectivity
-  - from: Layer2
-    to: Layer3
-    from_type: RS
-    to_type: all
-    connection_type: dense
-    weight:
-      normal:
-        mean: 0.0
-        std: 1.0
-  # Option 4: Random Fixed-Count Connectivity
-  - from: Sensory.Vision.predator
-    to: Layer2
-    from_type: RS
-    to_type: all
-    connection_type: random
-    targets_per_source: 10
-    weight:
-      uniform:
-        min: -1.0
-        max: 1.0
-  # Option 5: Pattern-Based with Exclusion
-  - from: Layer2.[1]
-    to: Layer2.[2]
+      fixed: -1.5
+  - from: A.[1].L.2
+    to: A.[1].L.3
     from_type: FS
     to_type: RS
-    connection_type: full
-    exclude_self: true
-    probability: 0.1
+    rule:
+      type: probabilistic
+      probability: 0.8
     weight:
-      fixed: -3.0
+      fixed: -1.5
+
+  # Rule 2: Cross-columnar communication between different columns.
+  # The different wildcards [1] and [2] allow connections between different columns.
+  # exclude_self: true prevents a column from connecting to itself when [1] and [2] happen to match.
+  - from: A.[1].L.1
+    to: A.[2].L.1
+    from_type: RS
+    to_type: RS
+    exclude_self: true
+    rule:
+      type: probabilistic
+      probability: 0.8
+    weight:
+      fixed: -1.5 # Simulating inhibitory interneurons not explicitly modeled
+
+  # Rule 3: Complex wildcard re-mapping.
+  # Connects excitatory cells from column [1] layer [2] (only column 2 has L.3)
+  # to inhibitory cells in area B group [2].
+  # This tests a path with a wildcard that only exists in some branches.
+  - from: A.[1].L.3
+    to: B.[2]
+    from_type: RS
+    to_type: FS
+    rule:
+      type: probabilistic
+      probability: 0.8
+    weight:
+      fixed: -1.5
+
+  # Rule 4: One-to-many projection from a specific group to a wildcarded set.
+  # Input group C.In.1 projects to the first layer of all columns in A.
+  - from: C.In.1
+    to: A.[1].L.1
+    from_type: RS
+    to_type: RS
+    rule:
+      type: probabilistic
+      probability: 0.8
+    weight:
+      fixed: -1.5
+
+  # Rule 5: Many-to-one projection from a wildcarded set to a specific group.
+  # All first layers from all A columns project to the single output group.
+  - from: A.[1].L.1
+    to: C.Out.1
+    from_type: RS
+    to_type: RS
+    rule:
+      type: probabilistic
+      probability: 0.8
+    weight:
+      fixed: -1.5
+
+  # Rule 6: Input mapping using a shared wildcard.
+  # Input C.In.[1] connects to area B group [1]. This will create C.In.1->B.1 and C.In.2->B.2.
+  - from: C.In.[1]
+    to: B.[1]
+    from_type: RS
+    to_type: FS
+    rule:
+      type: probabilistic
+      probability: 0.8
+    weight:
+      fixed: -1.5
+
+  # Rule 7: Test connections to a deeper, non-uniform layer.
+  # Connects A.1.L.1 and A.2.L.1 to the sub-layers 'a' and 'b' which only exist under A.2.L.3.
+  # The 'from' pattern will match A.1.L.1 and A.2.L.1. The 'to' pattern will only match A.2.L.3.a and A.2.L.3.b.
+  # Therefore, only A.2.L.1 will be a valid source for this rule.
+  - from: A.[1].L.1
+    to: A.2.L.3.[2] # [2] will match 'a' and 'b'
+    from_type: RS
+    to_type: RS
+    rule:
+      type: probabilistic
+      probability: 0.8
+    weight:
+      fixed: -1.5
+
+  # --- EDGE CASE TESTS ---
+
+  # Rule 8: Edge Case - Path does not exist.
+  # The path "A.[1].L.4" does not exist in the group structure. This rule should generate 0 connections.
+  - from: A.[1].L.4
+    to: B.1
+    from_type: RS
+    to_type: FS
+    rule:
+      type: probabilistic
+      probability: 0.8
+    weight:
+      fixed: -1.5
+
+  # Rule 9: Edge Case - 'from_type' does not exist in the source group.
+  # Group A.1.L.1 contains RS neurons, but we specify 'from_type: FS'. Should generate 0 connections.
+  - from: A.1.L.1
+    to: B.1
+    from_type: FS
+    to_type: FS
+    rule:
+      type: probabilistic
+      probability: 0.8
+    weight:
+      fixed: -1.5
+
+  # Rule 10: Edge Case - 'to_type' does not exist in the target group.
+  # Group B.1 contains FS neurons, but we specify 'to_type: RS'. Should generate 0 connections.
+  - from: A.1.L.1
+    to: B.1
+    from_type: RS
+    to_type: RS
+    rule:
+      type: probabilistic
+      probability: 0.8
+    weight:
+      fixed: -1.5
+
+  # Rule 11: Edge Case - Wildcard pattern with no possible matches.
+  # The structure A.[1].L.[1] would require the column name and layer name to be the same number.
+  # This is not the case for A.1.L.2, A.1.L.3 etc. but is true for A.1.L.1. So it should match only layer 1 in each column.
+  - from: A.[1].L.[1]
+    to: C.Out.1
+    from_type: RS
+    to_type: RS
+    rule:
+      type: probabilistic
+      probability: 0.8
+    weight:
+      fixed: -1.5

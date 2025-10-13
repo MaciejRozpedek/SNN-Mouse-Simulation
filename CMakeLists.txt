@@ -25,6 +25,7 @@ add_executable(snn_simulator ${SOURCE_FILES})
 target_include_directories(snn_simulator PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/exceptions
     ${CMAKE_CURRENT_SOURCE_DIR}/src/simulation
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utility
 )
