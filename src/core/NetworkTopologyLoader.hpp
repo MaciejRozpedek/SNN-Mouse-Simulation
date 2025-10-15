@@ -25,16 +25,7 @@ private:
     ConfigData data;
 
     template<typename T>
-    T getNodeAs(const YAML::Node& parent, const std::string& key, const std::string& context_path) const {
-        if (!parent[key]) {
-            throw SNNParseException("Brak wymaganego klucza '" + key + "' w '" + context_path + "'", parent);
-        }
-        try {
-            return parent[key].as<T>();
-        } catch (const YAML::TypedBadConversion<T>& e) {
-            throw SNNParseException("Nieprawidlowy typ danych dla klucza '" + key + "' w '" + context_path + "'. Oczekiwano typu, ktory mozna przekonwertowac na " + typeid(T).name() + ". Komunikat YAML: " + e.what(), parent[key]);
-        }
-    }
+    T getNodeAs(const YAML::Node& parent, const std::string& key, const std::string& context_path) const;
 
     WeightGenerator createWeightGenerator(const YAML::Node& weightNode, const std::string& context_path) const;
 

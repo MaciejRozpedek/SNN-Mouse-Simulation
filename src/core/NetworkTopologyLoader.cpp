@@ -2,6 +2,18 @@
 #include <iostream>
 #include "Random.hpp"
 
+template<typename T>
+T NetworkTopologyLoader::getNodeAs(const YAML::Node& parent, const std::string& key, const std::string& context_path) const {
+        if (!parent[key]) {
+            throw SNNParseException("Brak wymaganego klucza '" + key + "' w '" + context_path + "'", parent);
+        }
+        try {
+            return parent[key].as<T>();
+        } catch (const YAML::TypedBadConversion<T>& e) {
+            throw SNNParseException("Nieprawidlowy typ danych dla klucza '" + key + "' w '" + context_path + "'. Oczekiwano typu, ktory mozna przekonwertowac na " + typeid(T).name() + ". Komunikat YAML: " + e.what(), parent[key]);
+        }
+    }
+
 WeightGenerator NetworkTopologyLoader::createWeightGenerator(const YAML::Node& weightNode, const std::string& context_path) const {
     if (!weightNode || !weightNode.IsMap()) {
         throw SNNParseException("'weight' nieokreslone w polaczeniu w '" + context_path + "'.", weightNode);
@@ -227,14 +239,9 @@ std::vector<std::string> NetworkTopologyLoader::splitPath(const std::string& pat
 void NetworkTopologyLoader::findMatchingGroups(const std::string& from_pattern, const std::string& to_pattern,
     const GroupInfo& rootGroup, bool exclude_self, std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& out_matchedPairs) {
     
-    // Map to store wildcard substitutions
     std::map<int, std::string> wildcardValues;
-    
-    // Split patterns into segments
     std::vector<std::string> from_segments = splitPath(from_pattern);
     std::vector<std::string> to_segments = splitPath(to_pattern);
-    
-    // Start the recursive search
     findMatchingGroupsRecursive(rootGroup, rootGroup, from_segments, to_segments,
                                 0, wildcardValues, exclude_self, out_matchedPairs);
 }
@@ -257,19 +264,15 @@ void NetworkTopologyLoader::findMatchingGroupsRecursive(
         return;
     }
     
-    // Get current segment to match
     const std::string& segment = from_segments[from_index];
     
-    // Check if segment is a wildcard
     if (isWildcard(segment)) {
         int wildcardNum = getWildcardNumber(segment);
         
-        // If this wildcard has been seen before
+        // If this wildcard has been seen before, it must match the same subgroup
         if (wildcardValues.count(wildcardNum)) {
-            // Check if any subgroup matches the stored wildcard value
             for (const auto& subgroup : currentFromGroup.subgroups) {
                 if (subgroup.name == wildcardValues[wildcardNum]) {
-                    // Continue matching with this subgroup
                     findMatchingGroupsRecursive(subgroup, rootForToSearch, 
                                                 from_segments, to_segments,
                                                 from_index + 1,
@@ -277,18 +280,14 @@ void NetworkTopologyLoader::findMatchingGroupsRecursive(
                 }
             }
         } else {
-            // This wildcard hasn't been seen yet, try all possible subgroups
+            // New wildcard, try all subgroups
             for (const auto& subgroup : currentFromGroup.subgroups) {
-                // Assign this subgroup name to the wildcard
                 wildcardValues[wildcardNum] = subgroup.name;
-                
-                // Continue matching with this subgroup
                 findMatchingGroupsRecursive(subgroup, rootForToSearch, 
                                             from_segments, to_segments,
                                             from_index + 1,
                                             wildcardValues, exclude_self, out_matchedPairs);
                 
-                // Remove this assignment to try other possibilities
                 wildcardValues.erase(wildcardNum);
             }
         }
@@ -296,7 +295,6 @@ void NetworkTopologyLoader::findMatchingGroupsRecursive(
         // Literal segment, check if any subgroup matches exactly
         for (const auto& subgroup : currentFromGroup.subgroups) {
             if (subgroup.name == segment) {
-                // Continue matching with this subgroup
                 findMatchingGroupsRecursive(subgroup, rootForToSearch, 
                                             from_segments, to_segments,
                                             from_index + 1,
@@ -321,19 +319,16 @@ void NetworkTopologyLoader::findMatchingToGroups(
             return; // Skip self-connection if exclude_self is true
         }
         
-        // Add to processed pairs set
         out_matchedPairs.push_back({&fromGroup, &currentToGroup});
         return;
     }
     
-    // Get current segment to match
     const std::string& segment = to_segments[to_index];
     
-    // Check if segment is a wildcard
     if (isWildcard(segment)) {
         int wildcardNum = getWildcardNumber(segment);
-        
-        // If this wildcard has a defined value, match it
+
+        // If this wildcard has a defined value, try to match it
         if (wildcardValues.count(wildcardNum)) {
             for (const auto& subgroup : currentToGroup.subgroups) {
                 if (subgroup.name == wildcardValues.at(wildcardNum)) {
@@ -342,8 +337,8 @@ void NetworkTopologyLoader::findMatchingToGroups(
                 }
             }
         } else {
+            // New wildcard, try all subgroups
             for (const auto& subgroup : currentToGroup.subgroups) {
-                // Try assigning this subgroup name to the wildcard
                 std::map<int, std::string> newWildcardValues = wildcardValues;
                 newWildcardValues[wildcardNum] = subgroup.name;
                 
@@ -364,7 +359,11 @@ void NetworkTopologyLoader::findMatchingToGroups(
 
 // Helper function to check if a segment is a wildcard
 bool NetworkTopologyLoader::isWildcard(const std::string& segment) const {
-    return segment.size() >= 3 && segment.front() == '[' && segment.back() == ']';
+    if (segment.size() >= 3 && segment.front() == '[' && segment.back() == ']') {
+        std::string numberPart = segment.substr(1, segment.size() - 2);
+        return !numberPart.empty() && std::all_of(numberPart.begin(), numberPart.end(), ::isdigit);
+    }
+    return false;
 }
 
 // Helper function to extract wildcard number
