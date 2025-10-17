@@ -7,8 +7,8 @@
 
 struct IzhikevichParams {
     double a, b, c, d;
-    double starting_v;
-    double starting_u;
+    double v0;
+    double u0;
 };
 
 struct NeuronInfo
@@ -40,6 +40,9 @@ private:
     std::vector<double> u; // Recovery variables
     std::vector<double> I; // Input currents
     std::vector<int> neuronToTypeId; // mapping neuron index -> neuron type id
+
+    std::vector<std::vector<int>> synapticTargets;
+    std::vector<std::vector<double>> synapticWeights;
 
 public:
     explicit SNN(const std::string& filename);

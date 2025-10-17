@@ -4,15 +4,15 @@ neuron_types:
     b: 0.2
     c: -65.0
     d: 8.0
-    starting_v: -70.0
-    starting_u: -14.0
+    v0: -70.0
+    u0: -14.0
   FS:  # Fast Spiking (inhibitory)
     a: 0.1
     b: 0.2
     c: -65.0
     d: 2.0
-    starting_v: -70.0
-    starting_u: -14.0
+    v0: -70.0
+    u0: -14.0
 
 groups:
   - name: "A" # Main processing area
@@ -24,6 +24,8 @@ groups:
               - name: "1"
                 neurons:
                   - type: RS
+                    count: 50
+                  - type: FS
                     count: 50
               - name: "2"
                 neurons:

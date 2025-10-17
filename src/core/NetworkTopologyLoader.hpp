@@ -5,6 +5,7 @@
 #include <yaml-cpp/yaml.h>
 #include "SNNParseException.hpp"
 #include "WeightGenerator.hpp"
+#include <unordered_set>
 
 class NetworkTopologyLoader {
 public:
@@ -15,6 +16,9 @@ public:
         std::vector<double> initialV;
         std::vector<double> initialU;
         
+        std::vector<std::vector<int>> synapticTargets;
+        std::vector<std::vector<double>> synapticWeights;
+        
         GroupInfo rootGroup;
         std::unordered_map<std::string, int> neuronTypeToIdMap;
     };
@@ -23,6 +27,7 @@ public:
 
 private:
     ConfigData data;
+    std::vector<std::unordered_set<int>> existingConnections;
 
     template<typename T>
     T getNodeAs(const YAML::Node& parent, const std::string& key, const std::string& context_path) const;
@@ -33,6 +38,12 @@ private:
     void loadGroupData(const YAML::Node& groupNode, GroupInfo& groupInfo, int& current_start_index);
     void loadNeuronData(const YAML::Node& neuronsNode, GroupInfo& groupInfo, int& current_start_index);
     void loadConnectionsData(const YAML::Node& connectionsNode);
+
+    void getMatchingNeuronCount(const GroupInfo& group, const int type_id, std::vector<NeuronInfo>& out_neurons) const;    // type_id == -1 means all types
+    void createConnectionsBetweenGroups(
+        const GroupInfo& fromGroup, const GroupInfo& toGroup,
+        const std::string& from_type, const std::string& to_type,
+        const YAML::Node& ruleNode, WeightGenerator& weightGen, bool exclude_self);
 
     // find all pairs of (Group Nodes) matching the patterns
     std::vector<std::string> splitPath(const std::string& path) const;

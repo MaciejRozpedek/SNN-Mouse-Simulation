@@ -20,6 +20,7 @@ public:
 
     static double getNormal(double mean, double stddev);
     static double getUniform(double min, double max);
+    static double nextDouble();
 };
 
 #endif // RANDOM_HPP

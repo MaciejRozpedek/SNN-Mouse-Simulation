@@ -62,6 +62,7 @@ int NetworkTopologyLoader::getNeuronTypeId(const std::string& type_name) const {
 
 NetworkTopologyLoader::ConfigData NetworkTopologyLoader::loadFromYaml(const std::string &filename) {
     data = ConfigData(); // reset data
+    existingConnections.clear();
     try {
         YAML::Node config = YAML::LoadFile(filename);
         if (!config["neuron_types"]) {
@@ -83,8 +84,8 @@ NetworkTopologyLoader::ConfigData NetworkTopologyLoader::loadFromYaml(const std:
             params.b = getNodeAs<double>(params_node, "b", context);
             params.c = getNodeAs<double>(params_node, "c", context);
             params.d = getNodeAs<double>(params_node, "d", context);
-            params.starting_v = getNodeAs<double>(params_node, "starting_v", context);
-            params.starting_u = getNodeAs<double>(params_node, "starting_u", context);
+            params.v0 = getNodeAs<double>(params_node, "v0", context);
+            params.u0 = getNodeAs<double>(params_node, "u0", context);
 
             int type_id = static_cast<int>(data.neuronParamTypes.size());
             data.neuronParamTypes.push_back(params);
@@ -183,8 +184,8 @@ void NetworkTopologyLoader::loadNeuronData(const YAML::Node& neuronsNode, GroupI
             n_info.startIndex = current_start_index;
             data.globalNeuronTypeIds.insert(data.globalNeuronTypeIds.end(), count, n_info.typeId);
             IzhikevichParams params = data.neuronParamTypes[n_info.typeId];
-            data.initialV.insert(data.initialV.end(), count, params.starting_v);
-            data.initialU.insert(data.initialU.end(), count, params.starting_u);
+            data.initialV.insert(data.initialV.end(), count, params.v0);
+            data.initialU.insert(data.initialU.end(), count, params.u0);
 
             groupInfo.neuronInfos.push_back(n_info);
 
@@ -197,6 +198,10 @@ void NetworkTopologyLoader::loadConnectionsData(const YAML::Node& connectionsNod
     if (!connectionsNode.IsSequence()) {
         throw SNNParseException("Oczekiwano sekwencji dla 'connections'.", connectionsNode);
     }
+
+    data.synapticTargets.resize(data.globalNeuronTypeIds.size());
+    data.synapticWeights.resize(data.globalNeuronTypeIds.size());
+    existingConnections.resize(data.globalNeuronTypeIds.size());
 
     for (const auto& connectionNode : connectionsNode) {
         if (!connectionNode.IsMap()) {
@@ -220,8 +225,130 @@ void NetworkTopologyLoader::loadConnectionsData(const YAML::Node& connectionsNod
         findMatchingGroups(from_group, to_group, data.rootGroup, exclude_self, matchedPairs);
         for (const auto& pair : matchedPairs) {
             printf("  Matched Pair: %s -> %s\n", pair.first->fullName.c_str(), pair.second->fullName.c_str());
+            createConnectionsBetweenGroups(*pair.first, *pair.second, from_type, to_type, ruleNode, weightGen, exclude_self);
         }
         printf("\n");
+    }
+}
+
+// type_id == -1 means all types
+void NetworkTopologyLoader::getMatchingNeuronCount(const GroupInfo& group, const int type_id,
+    std::vector<NeuronInfo>& out_neurons) const {
+
+    if (!group.subgroups.empty()) {
+        for (const auto& subgroup : group.subgroups) {
+            getMatchingNeuronCount(subgroup, type_id, out_neurons);
+        }
+        return;
+    }
+    // if no subgroups, count neurons in this group
+    for (const auto& n_info : group.neuronInfos) {
+        if (n_info.typeId == type_id || type_id == -1) {
+            out_neurons.push_back(n_info);
+        }
+    }
+    return;
+}
+
+void NetworkTopologyLoader::createConnectionsBetweenGroups(
+    const GroupInfo& fromGroup, const GroupInfo& toGroup,
+    const std::string& from_type, const std::string& to_type,
+    const YAML::Node& ruleNode, WeightGenerator& weightGen, bool exclude_self) {
+
+    int from_type_id = (from_type == "all") ? -1 : getNeuronTypeId(from_type);
+    int to_type_id = (to_type == "all") ? -1 : getNeuronTypeId(to_type);
+    std::vector<NeuronInfo> from_neurons;
+    std::vector<NeuronInfo> to_neurons;
+    getMatchingNeuronCount(fromGroup, from_type_id, from_neurons);
+    getMatchingNeuronCount(toGroup, to_type_id, to_neurons);
+    
+    int fromCount = 0;
+    int toCount = 0;
+    for (const auto& n : from_neurons) fromCount += n.count;
+    for (const auto& n : to_neurons) toCount += n.count;
+
+    std::string rule_type = getNodeAs<std::string>(ruleNode, "type", "rule");
+    if (rule_type == "one_to_one") {
+        if (fromCount != toCount) {
+            throw SNNParseException("Liczba neuronow w 'from' i 'to' musi byc rowna dla reguly 'one_to_one'.", ruleNode);
+        }
+        int from_index = 0;
+        for (const auto& from_n : from_neurons) {
+            for (int i = 0; i < from_n.count; i++) {
+                int to_index = 0;
+                for (const auto& to_n : to_neurons) {
+                    for (int j = 0; j < to_n.count; j++) {
+                        if (existingConnections[from_n.startIndex + i].count(to_n.startIndex + j) > 0) {
+                            continue;
+                        }
+                        if (exclude_self && from_n.startIndex + i == to_n.startIndex + j) {
+                            continue;
+                        }
+                        if (from_index == to_index) {
+                            double weight = weightGen.generate();
+                            data.synapticTargets[from_n.startIndex + i].push_back(to_n.startIndex + j);
+                            data.synapticWeights[from_n.startIndex + i].push_back(weight);
+                        }
+                        to_index++;
+                    }
+                }
+                from_index++;
+            }
+        }
+    }
+    else if (rule_type == "all_to_all") {
+        for (const auto& from_n : from_neurons) {
+            for (int i = 0; i < from_n.count; i++) {
+                for (const auto& to_n : to_neurons) {
+                    for (int j = 0; j < to_n.count; j++) {
+                        if (existingConnections[from_n.startIndex + i].count(to_n.startIndex + j) > 0) {
+                            continue;
+                        }
+                        if (exclude_self && from_n.startIndex + i == to_n.startIndex + j) {
+                            continue;
+                        }
+                        double weight = weightGen.generate();
+                        data.synapticTargets[from_n.startIndex + i].push_back(to_n.startIndex + j);
+                        data.synapticWeights[from_n.startIndex + i].push_back(weight);
+                    }
+                }
+            }
+        }
+    }
+    else if (rule_type == "probabilistic") {
+        Random& randGen = Random::getInstance();
+        double probability = getNodeAs<double>(ruleNode, "probability", "rule");
+        if (probability < 0.0 || probability > 1.0) {
+            throw SNNParseException("'probability' musi byc w zakresie [0.0, 1.0] w regule 'probabilistic'.", ruleNode);
+        }
+        for (const auto& from_n : from_neurons) {
+            for (int i = 0; i < from_n.count; i++) {
+                for (const auto& to_n : to_neurons) {
+                    for (int j = 0; j < to_n.count; j++) {
+                        if (existingConnections[from_n.startIndex + i].count(to_n.startIndex + j) > 0) {
+                            continue;
+                        }
+                        if (exclude_self && from_n.startIndex + i == to_n.startIndex + j) {
+                            continue;
+                        }
+                        if (randGen.nextDouble() < probability) {
+                            double weight = weightGen.generate();
+                            data.synapticTargets[from_n.startIndex + i].push_back(to_n.startIndex + j);
+                            data.synapticWeights[from_n.startIndex + i].push_back(weight);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else if (rule_type == "fixed_in_degree") {
+
+    }
+    else if (rule_type == "fixed_out_degree") {
+
+    }
+    else {
+        throw SNNParseException("Nieznany typ reguly polaczen '" + rule_type + "' w 'rule'.", ruleNode);
     }
 }
 

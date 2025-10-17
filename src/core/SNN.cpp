@@ -14,6 +14,8 @@ SNN::SNN(const std::string &filename) {
     neuronToTypeId = std::move(config.globalNeuronTypeIds);
     v = std::move(config.initialV);
     u = std::move(config.initialU);
+    synapticTargets = std::move(config.synapticTargets);
+    synapticWeights = std::move(config.synapticWeights);
     
     // Initialize input current vector
     I.resize(total_neuron_count, 0.0);

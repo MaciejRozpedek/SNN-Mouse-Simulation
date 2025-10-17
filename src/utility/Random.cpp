@@ -23,3 +23,7 @@ double Random::getUniform(double min, double max) {
     std::uniform_real_distribution<double> dist(min, max);
     return dist(getInstance().engine);
 }
+
+double Random::nextDouble() {
+    return getUniform(0.0, 1.0);
+}
