@@ -20,7 +20,7 @@ private:
     WeightGenerator(Random& random, GenerationType type, double p1, double p2);
 
 public:
-    static WeightGenerator createFixed(Random& random, double fixed_value);
+    static WeightGenerator createFixed(Random& random, double fixedValue);
     static WeightGenerator createUniform(Random& random, double min, double max);
     static WeightGenerator createNormal(Random& random, double mean, double std);
 

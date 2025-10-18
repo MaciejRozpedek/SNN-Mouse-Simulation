@@ -21,6 +21,11 @@ public:
     static double getNormal(double mean, double stddev);
     static double getUniform(double min, double max);
     static double nextDouble();
+    static int nextInt(int maxExclusive);
+    static int getInt(int min, int max);
+
+    template<typename RandomIt>
+    static void shuffle(RandomIt first, RandomIt last);
 };
 
 #endif // RANDOM_HPP

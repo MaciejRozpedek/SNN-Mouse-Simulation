@@ -10,7 +10,7 @@ SNN::SNN(const std::string &filename) {
     // Transfer loaded data to SNN member variables
     neuronParamTypes = std::move(config.neuronParamTypes);
     rootGroup = std::move(config.rootGroup);
-    total_neuron_count = config.totalNeuronCount;
+    totalNeuronCount = config.totalNeuronCount;
     neuronToTypeId = std::move(config.globalNeuronTypeIds);
     v = std::move(config.initialV);
     u = std::move(config.initialU);
@@ -18,5 +18,5 @@ SNN::SNN(const std::string &filename) {
     synapticWeights = std::move(config.synapticWeights);
     
     // Initialize input current vector
-    I.resize(total_neuron_count, 0.0);
+    I.resize(totalNeuronCount, 0.0);
 }

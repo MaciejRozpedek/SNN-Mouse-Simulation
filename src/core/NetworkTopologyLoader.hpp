@@ -30,38 +30,38 @@ private:
     std::vector<std::unordered_set<int>> existingConnections;
 
     template<typename T>
-    T getNodeAs(const YAML::Node& parent, const std::string& key, const std::string& context_path) const;
+    T getNodeAs(const YAML::Node& parent, const std::string& key, const std::string& contextPath) const;
 
-    WeightGenerator createWeightGenerator(const YAML::Node& weightNode, const std::string& context_path) const;
+    WeightGenerator createWeightGenerator(const YAML::Node& weightNode, const std::string& contextPath) const;
 
-    int getNeuronTypeId(const std::string& type_name) const;
-    void loadGroupData(const YAML::Node& groupNode, GroupInfo& groupInfo, int& current_start_index);
-    void loadNeuronData(const YAML::Node& neuronsNode, GroupInfo& groupInfo, int& current_start_index);
+    int getNeuronTypeId(const std::string& typeName) const;
+    void loadGroupData(const YAML::Node& groupNode, GroupInfo& groupInfo, int& currentStartIndex);
+    void loadNeuronData(const YAML::Node& neuronsNode, GroupInfo& groupInfo, int& currentStartIndex);
     void loadConnectionsData(const YAML::Node& connectionsNode);
 
-    void getMatchingNeuronCount(const GroupInfo& group, const int type_id, std::vector<NeuronInfo>& out_neurons) const;    // type_id == -1 means all types
+    void getMatchingNeuronCount(const GroupInfo& group, const int typeId, std::vector<NeuronInfo>& outNeurons) const;    // typeId == -1 means all types
     void createConnectionsBetweenGroups(
         const GroupInfo& fromGroup, const GroupInfo& toGroup,
-        const std::string& from_type, const std::string& to_type,
-        const YAML::Node& ruleNode, WeightGenerator& weightGen, bool exclude_self);
+        const std::string& fromType, const std::string& toType,
+        const YAML::Node& ruleNode, WeightGenerator& weightGen, bool excludeSelf);
 
     // find all pairs of (Group Nodes) matching the patterns
     std::vector<std::string> splitPath(const std::string& path) const;
-    void findMatchingGroups(const std::string& from_pattern, const std::string& to_pattern,
-                            const GroupInfo& rootGroup, bool exclude_self,
-                            std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& out_matchedPairs);
+    void findMatchingGroups(const std::string& fromPattern, const std::string& toPattern,
+                            const GroupInfo& rootGroup, bool excludeSelf,
+                            std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& outMatchedPairs);
     
     void findMatchingGroupsRecursive(
         const GroupInfo& currentFromGroup, const GroupInfo& rootForToSearch,
-        const std::vector<std::string>& from_segments, const std::vector<std::string>& to_segments,
-        size_t from_index, std::map<int, std::string>& wildcardValues,
-        bool exclude_self, std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& out_matchedPairs);
+        const std::vector<std::string>& fromSegments, const std::vector<std::string>& toSegments,
+        int fromIndex, std::map<int, std::string>& wildcardValues,
+        bool excludeSelf, std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& outMatchedPairs);
 
     void findMatchingToGroups(
         const GroupInfo& fromGroup, const GroupInfo& currentToGroup,
-        const std::vector<std::string>& to_segments, size_t to_index,
-        const std::map<int, std::string>& wildcardValues, bool exclude_self,
-        std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& out_matchedPairs);
+        const std::vector<std::string>& toSegments, int toIndex,
+        const std::map<int, std::string>& wildcardValues, bool excludeSelf,
+        std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& outMatchedPairs);
 
     bool isWildcard(const std::string& segment) const;
     int getWildcardNumber(const std::string& segment) const;

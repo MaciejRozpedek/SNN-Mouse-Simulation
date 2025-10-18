@@ -3,60 +3,60 @@
 #include "Random.hpp"
 
 template<typename T>
-T NetworkTopologyLoader::getNodeAs(const YAML::Node& parent, const std::string& key, const std::string& context_path) const {
+T NetworkTopologyLoader::getNodeAs(const YAML::Node& parent, const std::string& key, const std::string& contextPath) const {
         if (!parent[key]) {
-            throw SNNParseException("Brak wymaganego klucza '" + key + "' w '" + context_path + "'", parent);
+            throw SNNParseException("Brak wymaganego klucza '" + key + "' w '" + contextPath + "'", parent);
         }
         try {
             return parent[key].as<T>();
         } catch (const YAML::TypedBadConversion<T>& e) {
-            throw SNNParseException("Nieprawidlowy typ danych dla klucza '" + key + "' w '" + context_path + "'. Oczekiwano typu, ktory mozna przekonwertowac na " + typeid(T).name() + ". Komunikat YAML: " + e.what(), parent[key]);
+            throw SNNParseException("Nieprawidlowy typ danych dla klucza '" + key + "' w '" + contextPath + "'. Oczekiwano typu, ktory mozna przekonwertowac na " + typeid(T).name() + ". Komunikat YAML: " + e.what(), parent[key]);
         }
     }
 
-WeightGenerator NetworkTopologyLoader::createWeightGenerator(const YAML::Node& weightNode, const std::string& context_path) const {
+WeightGenerator NetworkTopologyLoader::createWeightGenerator(const YAML::Node& weightNode, const std::string& contextPath) const {
     if (!weightNode || !weightNode.IsMap()) {
-        throw SNNParseException("'weight' nieokreslone w polaczeniu w '" + context_path + "'.", weightNode);
+        throw SNNParseException("'weight' nieokreslone w polaczeniu w '" + contextPath + "'.", weightNode);
     }
 
     if (weightNode["fixed"]) {
-        double fixed_value = getNodeAs<double>(weightNode, "fixed", context_path + ".weight");
-        return WeightGenerator::createFixed(Random::getInstance(), fixed_value);
+        double fixedValue = getNodeAs<double>(weightNode, "fixed", contextPath + ".weight");
+        return WeightGenerator::createFixed(Random::getInstance(), fixedValue);
     }
 
     if (weightNode["uniform"]) {
         YAML::Node uniformNode = weightNode["uniform"];
         if (!uniformNode.IsMap() || !uniformNode["min"] || !uniformNode["max"]) {
-            throw SNNParseException("Nieprawidlowy format dla 'uniform' w '" + context_path + "'. Oczekiwano mapy z kluczami 'min' i 'max'.", uniformNode);
+            throw SNNParseException("Nieprawidlowy format dla 'uniform' w '" + contextPath + "'. Oczekiwano mapy z kluczami 'min' i 'max'.", uniformNode);
         }
-        double min = getNodeAs<double>(uniformNode, "min", context_path);
-        double max = getNodeAs<double>(uniformNode, "max", context_path);
+        double min = getNodeAs<double>(uniformNode, "min", contextPath);
+        double max = getNodeAs<double>(uniformNode, "max", contextPath);
         if (min > max) {
-            throw SNNParseException("'min' musi byc mniejsze od 'max' w '" + context_path, uniformNode);
+            throw SNNParseException("'min' musi byc mniejsze od 'max' w '" + contextPath, uniformNode);
         }
         return WeightGenerator::createUniform(Random::getInstance(), min, max);
     }
 
     if (weightNode["normal"]) {
         const YAML::Node& normalNode = weightNode["normal"];
-        double mean_val = getNodeAs<double>(normalNode, "mean", "weight.normal");
-        double std_val = getNodeAs<double>(normalNode, "std", "weight.normal");
+        double meanVal = getNodeAs<double>(normalNode, "mean", "weight.normal");
+        double stdVal = getNodeAs<double>(normalNode, "std", "weight.normal");
         
-        if (std_val < 0.0) {
+        if (stdVal < 0.0) {
              throw SNNParseException("Blad parsowania: 'std' musi byc nieujemne w normal.", normalNode);
         }
-        return WeightGenerator::createNormal(Random::getInstance(), mean_val, std_val);
+        return WeightGenerator::createNormal(Random::getInstance(), meanVal, stdVal);
     }
 
-    throw SNNParseException("Nieprawidlowy format dla 'weight' w '" + context_path + "'. Oczekiwano jednego z kluczy: 'fixed', 'uniform', 'normal'.", weightNode);
+    throw SNNParseException("Nieprawidlowy format dla 'weight' w '" + contextPath + "'. Oczekiwano jednego z kluczy: 'fixed', 'uniform', 'normal'.", weightNode);
 }
 
-int NetworkTopologyLoader::getNeuronTypeId(const std::string& type_name) const {
-    auto it = data.neuronTypeToIdMap.find(type_name);
+int NetworkTopologyLoader::getNeuronTypeId(const std::string& typeName) const {
+    auto it = data.neuronTypeToIdMap.find(typeName);
     if (it != data.neuronTypeToIdMap.end()) {
         return it->second;
     } else {
-        throw SNNParseException("Nieznany typ neuronu '" + type_name + "' w sekcji 'neuron_types'.");
+        throw SNNParseException("Nieznany typ neuronu '" + typeName + "' w sekcji 'neuron_types'.");
     }
 }
 
@@ -69,27 +69,27 @@ NetworkTopologyLoader::ConfigData NetworkTopologyLoader::loadFromYaml(const std:
             throw SNNParseException("Brak sekcji 'neuron_types' w pliku YAML.", config);
         }
         // first load neuron types
-        const YAML::Node& neuron_types = config["neuron_types"];
-        for (const auto& type : neuron_types) {
-            std::string type_name = type.first.as<std::string>();
-            const YAML::Node& params_node = type.second;
+        const YAML::Node& neuronTypes = config["neuron_types"];
+        for (const auto& type : neuronTypes) {
+            std::string typeName = type.first.as<std::string>();
+            const YAML::Node& paramsNode = type.second;
 
-            if (!params_node.IsMap()) {
-                throw SNNParseException("Parametry dla typu '" + type_name + "' w sekcji 'neuron_types' nie sa poprawna mapa.", params_node);
+            if (!paramsNode.IsMap()) {
+                throw SNNParseException("Parametry dla typu '" + typeName + "' w sekcji 'neuron_types' nie sa poprawna mapa.", paramsNode);
             }
 
             IzhikevichParams params;
-            std::string context = "neuron_types." + type_name;
-            params.a = getNodeAs<double>(params_node, "a", context);
-            params.b = getNodeAs<double>(params_node, "b", context);
-            params.c = getNodeAs<double>(params_node, "c", context);
-            params.d = getNodeAs<double>(params_node, "d", context);
-            params.v0 = getNodeAs<double>(params_node, "v0", context);
-            params.u0 = getNodeAs<double>(params_node, "u0", context);
+            std::string context = "neuron_types." + typeName;
+            params.a = getNodeAs<double>(paramsNode, "a", context);
+            params.b = getNodeAs<double>(paramsNode, "b", context);
+            params.c = getNodeAs<double>(paramsNode, "c", context);
+            params.d = getNodeAs<double>(paramsNode, "d", context);
+            params.v0 = getNodeAs<double>(paramsNode, "v0", context);
+            params.u0 = getNodeAs<double>(paramsNode, "u0", context);
 
-            int type_id = static_cast<int>(data.neuronParamTypes.size());
+            int typeId = static_cast<int>(data.neuronParamTypes.size());
             data.neuronParamTypes.push_back(params);
-            data.neuronTypeToIdMap[type_name] = type_id;
+            data.neuronTypeToIdMap[typeName] = typeId;
         } // neuron types loaded
 
         // second load neuron groups
@@ -97,12 +97,12 @@ NetworkTopologyLoader::ConfigData NetworkTopologyLoader::loadFromYaml(const std:
             throw SNNParseException("Brak sekcji 'groups' w pliku YAML.", config);
         }
         const YAML::Node& groups = config["groups"];
-        int current_start_index = 0;
+        int currentStartIndex = 0;
         data.rootGroup = GroupInfo();
         data.rootGroup.fullName = "root";
         // read group information to rootGroup
-        loadGroupData(groups, data.rootGroup, current_start_index);
-        data.totalNeuronCount = current_start_index;
+        loadGroupData(groups, data.rootGroup, currentStartIndex);
+        data.totalNeuronCount = currentStartIndex;
         data.rootGroup.startIndex = 0;
         data.rootGroup.totalCount = data.totalNeuronCount;
 
@@ -122,11 +122,11 @@ NetworkTopologyLoader::ConfigData NetworkTopologyLoader::loadFromYaml(const std:
     return data;
 }
 
-void NetworkTopologyLoader::loadGroupData(const YAML::Node& groupNode, GroupInfo& groupInfo, int& current_start_index) {
+void NetworkTopologyLoader::loadGroupData(const YAML::Node& groupNode, GroupInfo& groupInfo, int& currentStartIndex) {
     if (!groupNode.IsSequence()) {
         throw SNNParseException("Oczekiwano sekwencji grup w grupie '" + groupInfo.fullName + "'.", groupNode);
     }
-    groupInfo.startIndex = current_start_index;
+    groupInfo.startIndex = currentStartIndex;
     groupInfo.totalCount = 0;
 
     for (const auto& node : groupNode) {
@@ -137,35 +137,35 @@ void NetworkTopologyLoader::loadGroupData(const YAML::Node& groupNode, GroupInfo
         GroupInfo subgroup;
         subgroup.name = getNodeAs<std::string>(node, "name", groupInfo.fullName);
         subgroup.fullName = groupInfo.fullName + "." + subgroup.name;
-        subgroup.startIndex = current_start_index;
+        subgroup.startIndex = currentStartIndex;
         subgroup.totalCount = 0;
 
-        bool has_neurons = node["neurons"].IsDefined();
-        bool has_subgroups = node["subgroups"].IsDefined();
+        bool hasNeurons = node["neurons"].IsDefined();
+        bool hasSubgroups = node["subgroups"].IsDefined();
 
-        if (has_neurons && has_subgroups) {
+        if (hasNeurons && hasSubgroups) {
             throw SNNParseException("Grupa '" + subgroup.fullName + "' nie moze miec jednoczesnie 'neurons' i 'subgroups'.", node);
         }
 
-        if (has_neurons) {
+        if (hasNeurons) {
             if (!node["neurons"].IsSequence()) {
                 throw SNNParseException("Oczekiwano sekwencji dla 'neurons' w grupie '" + subgroup.fullName + "'.", node["neurons"]);
             }
-            loadNeuronData(node["neurons"], subgroup, current_start_index);
+            loadNeuronData(node["neurons"], subgroup, currentStartIndex);
         }
-        if (has_subgroups) {
+        if (hasSubgroups) {
             if (!node["subgroups"].IsSequence()) {
                 throw SNNParseException("Oczekiwano sekwencji dla 'subgroups' w grupie '" + subgroup.fullName + "'.", node["subgroups"]);
             }
-            loadGroupData(node["subgroups"], subgroup, current_start_index);
+            loadGroupData(node["subgroups"], subgroup, currentStartIndex);
         }
-        subgroup.totalCount = current_start_index - subgroup.startIndex;
+        subgroup.totalCount = currentStartIndex - subgroup.startIndex;
         groupInfo.totalCount += subgroup.totalCount;
         groupInfo.subgroups.push_back(subgroup);
     }
 }
 
-void NetworkTopologyLoader::loadNeuronData(const YAML::Node& neuronsNode, GroupInfo& groupInfo, int& current_start_index) {
+void NetworkTopologyLoader::loadNeuronData(const YAML::Node& neuronsNode, GroupInfo& groupInfo, int& currentStartIndex) {
     if (!neuronsNode.IsSequence()) {
         throw SNNParseException("Oczekiwano sekwencji dla 'neurons' w grupie '" + groupInfo.fullName + "'.", neuronsNode);
     }
@@ -174,22 +174,22 @@ void NetworkTopologyLoader::loadNeuronData(const YAML::Node& neuronsNode, GroupI
         if (!neuronTypeNode.IsMap()) {
             throw SNNParseException("Oczekiwano mapy dla typu neuronu w grupie '" + groupInfo.fullName + "'.", neuronTypeNode);
         }
-        std::string type_name = getNodeAs<std::string>(neuronTypeNode, "type", groupInfo.fullName);
+        std::string typeName = getNodeAs<std::string>(neuronTypeNode, "type", groupInfo.fullName);
         int count = getNodeAs<int>(neuronTypeNode, "count", groupInfo.fullName);
 
         if (count > 0) {
-            NeuronInfo n_info;
-            n_info.typeId = getNeuronTypeId(type_name);
-            n_info.count = count;
-            n_info.startIndex = current_start_index;
-            data.globalNeuronTypeIds.insert(data.globalNeuronTypeIds.end(), count, n_info.typeId);
-            IzhikevichParams params = data.neuronParamTypes[n_info.typeId];
+            NeuronInfo nInfo;
+            nInfo.typeId = getNeuronTypeId(typeName);
+            nInfo.count = count;
+            nInfo.startIndex = currentStartIndex;
+            data.globalNeuronTypeIds.insert(data.globalNeuronTypeIds.end(), count, nInfo.typeId);
+            IzhikevichParams params = data.neuronParamTypes[nInfo.typeId];
             data.initialV.insert(data.initialV.end(), count, params.v0);
             data.initialU.insert(data.initialU.end(), count, params.u0);
 
-            groupInfo.neuronInfos.push_back(n_info);
+            groupInfo.neuronInfos.push_back(nInfo);
 
-            current_start_index += count;
+            currentStartIndex += count;
         }
     }
 }
@@ -208,43 +208,43 @@ void NetworkTopologyLoader::loadConnectionsData(const YAML::Node& connectionsNod
             throw SNNParseException("Oczekiwano mapy dla polaczenia w 'connections'.", connectionNode);
         }
         std::string context = "connections";
-        std::string from_group = getNodeAs<std::string>(connectionNode, "from", context);
-        std::string to_group = getNodeAs<std::string>(connectionNode, "to", context);
-        std::string from_type = getNodeAs<std::string>(connectionNode, "from_type", context);
-        std::string to_type = getNodeAs<std::string>(connectionNode, "to_type", context);
+        std::string fromGroup = getNodeAs<std::string>(connectionNode, "from", context);
+        std::string toGroup = getNodeAs<std::string>(connectionNode, "to", context);
+        std::string fromType = getNodeAs<std::string>(connectionNode, "from_type", context);
+        std::string toType = getNodeAs<std::string>(connectionNode, "to_type", context);
         // exclude_self is optional, default to false
-        bool exclude_self = connectionNode["exclude_self"] ? getNodeAs<bool>(connectionNode, "exclude_self", context + " (default false)") : false;
+        bool excludeSelf = connectionNode["exclude_self"] ? getNodeAs<bool>(connectionNode, "exclude_self", context + " (default false)") : false;
         YAML::Node ruleNode = getNodeAs<YAML::Node>(connectionNode, "rule", context);
         YAML::Node weightNode = getNodeAs<YAML::Node>(connectionNode, "weight", context);
 
-        WeightGenerator weightGen = createWeightGenerator(weightNode, context + " (from '" + from_group + "' to '" + to_group + "')");
+        WeightGenerator weightGen = createWeightGenerator(weightNode, context + " (from '" + fromGroup + "' to '" + toGroup + "')");
         
         // Make actual connection here (not implemented in this commit). For now, just print the connection details.
         std::vector<std::pair<const GroupInfo*, const GroupInfo*>> matchedPairs;
-        printf("From '%s', To '%s'\n", from_group.c_str(), to_group.c_str());
-        findMatchingGroups(from_group, to_group, data.rootGroup, exclude_self, matchedPairs);
+        printf("From '%s', To '%s'\n", fromGroup.c_str(), toGroup.c_str());
+        findMatchingGroups(fromGroup, toGroup, data.rootGroup, excludeSelf, matchedPairs);
         for (const auto& pair : matchedPairs) {
             printf("  Matched Pair: %s -> %s\n", pair.first->fullName.c_str(), pair.second->fullName.c_str());
-            createConnectionsBetweenGroups(*pair.first, *pair.second, from_type, to_type, ruleNode, weightGen, exclude_self);
+            createConnectionsBetweenGroups(*pair.first, *pair.second, fromType, toType, ruleNode, weightGen, excludeSelf);
         }
         printf("\n");
     }
 }
 
 // type_id == -1 means all types
-void NetworkTopologyLoader::getMatchingNeuronCount(const GroupInfo& group, const int type_id,
-    std::vector<NeuronInfo>& out_neurons) const {
+void NetworkTopologyLoader::getMatchingNeuronCount(const GroupInfo& group, const int typeId,
+    std::vector<NeuronInfo>& outNeurons) const {
 
     if (!group.subgroups.empty()) {
         for (const auto& subgroup : group.subgroups) {
-            getMatchingNeuronCount(subgroup, type_id, out_neurons);
+            getMatchingNeuronCount(subgroup, typeId, outNeurons);
         }
         return;
     }
     // if no subgroups, count neurons in this group
-    for (const auto& n_info : group.neuronInfos) {
-        if (n_info.typeId == type_id || type_id == -1) {
-            out_neurons.push_back(n_info);
+    for (const auto& nInfo : group.neuronInfos) {
+        if (nInfo.typeId == typeId || typeId == -1) {
+            outNeurons.push_back(nInfo);
         }
     }
     return;
@@ -252,103 +252,103 @@ void NetworkTopologyLoader::getMatchingNeuronCount(const GroupInfo& group, const
 
 void NetworkTopologyLoader::createConnectionsBetweenGroups(
     const GroupInfo& fromGroup, const GroupInfo& toGroup,
-    const std::string& from_type, const std::string& to_type,
-    const YAML::Node& ruleNode, WeightGenerator& weightGen, bool exclude_self) {
+    const std::string& fromType, const std::string& toType,
+    const YAML::Node& ruleNode, WeightGenerator& weightGen, bool excludeSelf) {
 
-    int from_type_id = (from_type == "all") ? -1 : getNeuronTypeId(from_type);
-    int to_type_id = (to_type == "all") ? -1 : getNeuronTypeId(to_type);
-    std::vector<NeuronInfo> from_neurons;
-    std::vector<NeuronInfo> to_neurons;
-    getMatchingNeuronCount(fromGroup, from_type_id, from_neurons);
-    getMatchingNeuronCount(toGroup, to_type_id, to_neurons);
+    int fromTypeId = (fromType == "all") ? -1 : getNeuronTypeId(fromType);
+    int toTypeId = (toType == "all") ? -1 : getNeuronTypeId(toType);
+    std::vector<NeuronInfo> fromNeurons;
+    std::vector<NeuronInfo> toNeurons;
+    getMatchingNeuronCount(fromGroup, fromTypeId, fromNeurons);
+    getMatchingNeuronCount(toGroup, toTypeId, toNeurons);
     
     int fromCount = 0;
     int toCount = 0;
-    for (const auto& n : from_neurons) fromCount += n.count;
-    for (const auto& n : to_neurons) toCount += n.count;
+    for (const auto& n : fromNeurons) fromCount += n.count;
+    for (const auto& n : toNeurons) toCount += n.count;
 
-    std::string rule_type = getNodeAs<std::string>(ruleNode, "type", "rule");
-    if (rule_type == "one_to_one") {
+    std::string ruleType = getNodeAs<std::string>(ruleNode, "type", "rule");
+    if (ruleType == "one_to_one") {
         if (fromCount != toCount) {
             throw SNNParseException("Liczba neuronow w 'from' i 'to' musi byc rowna dla reguly 'one_to_one'.", ruleNode);
         }
-        int from_index = 0;
-        for (const auto& from_n : from_neurons) {
-            for (int i = 0; i < from_n.count; i++) {
-                int to_index = 0;
-                for (const auto& to_n : to_neurons) {
-                    for (int j = 0; j < to_n.count; j++) {
-                        if (existingConnections[from_n.startIndex + i].count(to_n.startIndex + j) > 0) {
+        int fromIndex = 0;
+        for (const auto& fromN : fromNeurons) {
+            for (int i = 0; i < fromN.count; i++) {
+                int toIndex = 0;
+                for (const auto& toN : toNeurons) {
+                    for (int j = 0; j < toN.count; j++) {
+                        if (existingConnections[fromN.startIndex + i].count(toN.startIndex + j) > 0) {
                             continue;
                         }
-                        if (exclude_self && from_n.startIndex + i == to_n.startIndex + j) {
+                        if (excludeSelf && fromN.startIndex + i == toN.startIndex + j) {
                             continue;
                         }
-                        if (from_index == to_index) {
+                        if (fromIndex == toIndex) {
                             double weight = weightGen.generate();
-                            data.synapticTargets[from_n.startIndex + i].push_back(to_n.startIndex + j);
-                            data.synapticWeights[from_n.startIndex + i].push_back(weight);
+                            data.synapticTargets[fromN.startIndex + i].push_back(toN.startIndex + j);
+                            data.synapticWeights[fromN.startIndex + i].push_back(weight);
                         }
-                        to_index++;
+                        toIndex++;
                     }
                 }
-                from_index++;
+                fromIndex++;
             }
         }
     }
-    else if (rule_type == "all_to_all") {
-        for (const auto& from_n : from_neurons) {
-            for (int i = 0; i < from_n.count; i++) {
-                for (const auto& to_n : to_neurons) {
-                    for (int j = 0; j < to_n.count; j++) {
-                        if (existingConnections[from_n.startIndex + i].count(to_n.startIndex + j) > 0) {
+    else if (ruleType == "all_to_all") {
+        for (const auto& fromN : fromNeurons) {
+            for (int i = 0; i < fromN.count; i++) {
+                for (const auto& toN : toNeurons) {
+                    for (int j = 0; j < toN.count; j++) {
+                        if (existingConnections[fromN.startIndex + i].count(toN.startIndex + j) > 0) {
                             continue;
                         }
-                        if (exclude_self && from_n.startIndex + i == to_n.startIndex + j) {
+                        if (excludeSelf && fromN.startIndex + i == toN.startIndex + j) {
                             continue;
                         }
                         double weight = weightGen.generate();
-                        data.synapticTargets[from_n.startIndex + i].push_back(to_n.startIndex + j);
-                        data.synapticWeights[from_n.startIndex + i].push_back(weight);
+                        data.synapticTargets[fromN.startIndex + i].push_back(toN.startIndex + j);
+                        data.synapticWeights[fromN.startIndex + i].push_back(weight);
                     }
                 }
             }
         }
     }
-    else if (rule_type == "probabilistic") {
+    else if (ruleType == "probabilistic") {
         Random& randGen = Random::getInstance();
         double probability = getNodeAs<double>(ruleNode, "probability", "rule");
         if (probability < 0.0 || probability > 1.0) {
             throw SNNParseException("'probability' musi byc w zakresie [0.0, 1.0] w regule 'probabilistic'.", ruleNode);
         }
-        for (const auto& from_n : from_neurons) {
-            for (int i = 0; i < from_n.count; i++) {
-                for (const auto& to_n : to_neurons) {
-                    for (int j = 0; j < to_n.count; j++) {
-                        if (existingConnections[from_n.startIndex + i].count(to_n.startIndex + j) > 0) {
+        for (const auto& fromN : fromNeurons) {
+            for (int i = 0; i < fromN.count; i++) {
+                for (const auto& toN : toNeurons) {
+                    for (int j = 0; j < toN.count; j++) {
+                        if (existingConnections[fromN.startIndex + i].count(toN.startIndex + j) > 0) {
                             continue;
                         }
-                        if (exclude_self && from_n.startIndex + i == to_n.startIndex + j) {
+                        if (excludeSelf && fromN.startIndex + i == toN.startIndex + j) {
                             continue;
                         }
                         if (randGen.nextDouble() < probability) {
                             double weight = weightGen.generate();
-                            data.synapticTargets[from_n.startIndex + i].push_back(to_n.startIndex + j);
-                            data.synapticWeights[from_n.startIndex + i].push_back(weight);
+                            data.synapticTargets[fromN.startIndex + i].push_back(toN.startIndex + j);
+                            data.synapticWeights[fromN.startIndex + i].push_back(weight);
                         }
                     }
                 }
             }
         }
     }
-    else if (rule_type == "fixed_in_degree") {
+    else if (ruleType == "fixed_in_degree") {
 
     }
-    else if (rule_type == "fixed_out_degree") {
+    else if (ruleType == "fixed_out_degree") {
 
     }
     else {
-        throw SNNParseException("Nieznany typ reguly polaczen '" + rule_type + "' w 'rule'.", ruleNode);
+        throw SNNParseException("Nieznany typ reguly polaczen '" + ruleType + "' w 'rule'.", ruleNode);
     }
 }
 
@@ -363,35 +363,35 @@ std::vector<std::string> NetworkTopologyLoader::splitPath(const std::string& pat
     return parts;
 }
 
-void NetworkTopologyLoader::findMatchingGroups(const std::string& from_pattern, const std::string& to_pattern,
-    const GroupInfo& rootGroup, bool exclude_self, std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& out_matchedPairs) {
+void NetworkTopologyLoader::findMatchingGroups(const std::string& fromPattern, const std::string& toPattern,
+    const GroupInfo& rootGroup, bool excludeSelf, std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& outMatchedPairs) {
     
     std::map<int, std::string> wildcardValues;
-    std::vector<std::string> from_segments = splitPath(from_pattern);
-    std::vector<std::string> to_segments = splitPath(to_pattern);
-    findMatchingGroupsRecursive(rootGroup, rootGroup, from_segments, to_segments,
-                                0, wildcardValues, exclude_self, out_matchedPairs);
+    std::vector<std::string> fromSegments = splitPath(fromPattern);
+    std::vector<std::string> toSegments = splitPath(toPattern);
+    findMatchingGroupsRecursive(rootGroup, rootGroup, fromSegments, toSegments,
+                                0, wildcardValues, excludeSelf, outMatchedPairs);
 }
 
 void NetworkTopologyLoader::findMatchingGroupsRecursive(
     const GroupInfo& currentFromGroup, 
     const GroupInfo& rootForToSearch,
-    const std::vector<std::string>& from_segments, 
-    const std::vector<std::string>& to_segments,
-    size_t from_index,
+    const std::vector<std::string>& fromSegments, 
+    const std::vector<std::string>& toSegments,
+    int fromIndex,
     std::map<int, std::string> &wildcardValues,
-    bool exclude_self,
-    std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& out_matchedPairs) {
+    bool excludeSelf,
+    std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& outMatchedPairs) {
 
     // If we've matched the complete 'from' pattern
-    if (from_index == from_segments.size()) {
+    if (fromIndex == fromSegments.size()) {
         // Find matching 'to' groups with current wildcard values
-        findMatchingToGroups(currentFromGroup, rootForToSearch, to_segments, 
-                            0, wildcardValues, exclude_self, out_matchedPairs);
+        findMatchingToGroups(currentFromGroup, rootForToSearch, toSegments, 
+                            0, wildcardValues, excludeSelf, outMatchedPairs);
         return;
     }
     
-    const std::string& segment = from_segments[from_index];
+    const std::string& segment = fromSegments[fromIndex];
     
     if (isWildcard(segment)) {
         int wildcardNum = getWildcardNumber(segment);
@@ -401,9 +401,9 @@ void NetworkTopologyLoader::findMatchingGroupsRecursive(
             for (const auto& subgroup : currentFromGroup.subgroups) {
                 if (subgroup.name == wildcardValues[wildcardNum]) {
                     findMatchingGroupsRecursive(subgroup, rootForToSearch, 
-                                                from_segments, to_segments,
-                                                from_index + 1,
-                                                wildcardValues, exclude_self, out_matchedPairs);
+                                                fromSegments, toSegments,
+                                                fromIndex + 1,
+                                                wildcardValues, excludeSelf, outMatchedPairs);
                 }
             }
         } else {
@@ -411,9 +411,9 @@ void NetworkTopologyLoader::findMatchingGroupsRecursive(
             for (const auto& subgroup : currentFromGroup.subgroups) {
                 wildcardValues[wildcardNum] = subgroup.name;
                 findMatchingGroupsRecursive(subgroup, rootForToSearch, 
-                                            from_segments, to_segments,
-                                            from_index + 1,
-                                            wildcardValues, exclude_self, out_matchedPairs);
+                                            fromSegments, toSegments,
+                                            fromIndex + 1,
+                                            wildcardValues, excludeSelf, outMatchedPairs);
                 
                 wildcardValues.erase(wildcardNum);
             }
@@ -423,9 +423,9 @@ void NetworkTopologyLoader::findMatchingGroupsRecursive(
         for (const auto& subgroup : currentFromGroup.subgroups) {
             if (subgroup.name == segment) {
                 findMatchingGroupsRecursive(subgroup, rootForToSearch, 
-                                            from_segments, to_segments,
-                                            from_index + 1,
-                                            wildcardValues, exclude_self, out_matchedPairs);
+                                            fromSegments, toSegments,
+                                            fromIndex + 1,
+                                            wildcardValues, excludeSelf, outMatchedPairs);
             }
         }
     }
@@ -434,23 +434,23 @@ void NetworkTopologyLoader::findMatchingGroupsRecursive(
 void NetworkTopologyLoader::findMatchingToGroups(
     const GroupInfo& fromGroup, 
     const GroupInfo& currentToGroup,
-    const std::vector<std::string>& to_segments, 
-    size_t to_index,
+    const std::vector<std::string>& toSegments, 
+    int toIndex,
     const std::map<int, std::string>& wildcardValues,
-    bool exclude_self,
-    std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& out_matchedPairs) {
+    bool excludeSelf,
+    std::vector<std::pair<const GroupInfo*, const GroupInfo*>>& outMatchedPairs) {
     
     // If we've matched the complete 'to' pattern
-    if (to_index == to_segments.size()) {
-        if (exclude_self && fromGroup.fullName == currentToGroup.fullName) {
-            return; // Skip self-connection if exclude_self is true
+    if (toIndex == toSegments.size()) {
+        if (excludeSelf && fromGroup.fullName == currentToGroup.fullName) {
+            return; // Skip self-connection if excludeSelf is true
         }
         
-        out_matchedPairs.push_back({&fromGroup, &currentToGroup});
+        outMatchedPairs.push_back({&fromGroup, &currentToGroup});
         return;
     }
     
-    const std::string& segment = to_segments[to_index];
+    const std::string& segment = toSegments[toIndex];
     
     if (isWildcard(segment)) {
         int wildcardNum = getWildcardNumber(segment);
@@ -459,8 +459,8 @@ void NetworkTopologyLoader::findMatchingToGroups(
         if (wildcardValues.count(wildcardNum)) {
             for (const auto& subgroup : currentToGroup.subgroups) {
                 if (subgroup.name == wildcardValues.at(wildcardNum)) {
-                    findMatchingToGroups(fromGroup, subgroup, to_segments,
-                                        to_index + 1, wildcardValues, exclude_self, out_matchedPairs);
+                    findMatchingToGroups(fromGroup, subgroup, toSegments,
+                                        toIndex + 1, wildcardValues, excludeSelf, outMatchedPairs);
                 }
             }
         } else {
@@ -469,16 +469,16 @@ void NetworkTopologyLoader::findMatchingToGroups(
                 std::map<int, std::string> newWildcardValues = wildcardValues;
                 newWildcardValues[wildcardNum] = subgroup.name;
                 
-                findMatchingToGroups(fromGroup, subgroup, to_segments, 
-                                    to_index + 1, newWildcardValues, exclude_self, out_matchedPairs);
+                findMatchingToGroups(fromGroup, subgroup, toSegments, 
+                                    toIndex + 1, newWildcardValues, excludeSelf, outMatchedPairs);
             }
         }
     } else {
         // Literal segment, check if any subgroup matches exactly
         for (const auto& subgroup : currentToGroup.subgroups) {
             if (subgroup.name == segment) {
-                findMatchingToGroups(fromGroup, subgroup, to_segments,
-                                    to_index + 1, wildcardValues, exclude_self, out_matchedPairs);
+                findMatchingToGroups(fromGroup, subgroup, toSegments,
+                                    toIndex + 1, wildcardValues, excludeSelf, outMatchedPairs);
             }
         }
     }

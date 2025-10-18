@@ -11,7 +11,7 @@ public:
     SNNParseException(const std::string& message);
 
 private:
-    static std::string build_error_message(const std::string& message, const YAML::Node& node);
+    static std::string buildErrorMessage(const std::string& message, const YAML::Node& node);
 };
 
 #endif // SNN_PARSE_EXCEPTION_HPP

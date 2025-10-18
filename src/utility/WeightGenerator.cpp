@@ -1,4 +1,5 @@
 #include "WeightGenerator.hpp"
+#include <stdexcept>
 
 WeightGenerator::WeightGenerator(Random& random, GenerationType type, double p1, double p2)
     : random(random), type(type), p1(p1), p2(p2) {
@@ -20,8 +21,8 @@ WeightGenerator::WeightGenerator(Random& random, GenerationType type, double p1,
     }
 }
 
-WeightGenerator WeightGenerator::createFixed(Random& random, double fixed_value) {
-    return WeightGenerator(random, GenerationType::FIXED, fixed_value, 0.0);
+WeightGenerator WeightGenerator::createFixed(Random& random, double fixedValue) {
+    return WeightGenerator(random, GenerationType::FIXED, fixedValue, 0.0);
 }
 
 WeightGenerator WeightGenerator::createUniform(Random& random, double min, double max) {

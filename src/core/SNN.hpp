@@ -35,7 +35,7 @@ private:
 
     // used during simulation
     std::vector<IzhikevichParams> neuronParamTypes; // Indexed by typeId from neuronToTypeId
-    int total_neuron_count = 0;
+    int totalNeuronCount = 0;
     std::vector<double> v; // Membrane potentials
     std::vector<double> u; // Recovery variables
     std::vector<double> I; // Input currents
