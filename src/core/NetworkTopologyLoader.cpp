@@ -342,10 +342,92 @@ void NetworkTopologyLoader::createConnectionsBetweenGroups(
         }
     }
     else if (ruleType == "fixed_in_degree") {
-
+        int count = getNodeAs<int>(ruleNode, "count", "rule");
+        if (count <= 0) {
+            throw SNNParseException("'count' musi byc dodatnie w regule 'fixed_in_degree'.", ruleNode);
+        }
+        Random& randGen = Random::getInstance();
+        // Create a list of all possible source indices
+        std::vector<int> allSourceIndices;
+        allSourceIndices.reserve(fromCount);
+        for (const auto& from_n : fromNeurons) {
+            for (int i = 0; i < from_n.count; i++) {
+                allSourceIndices.push_back(from_n.startIndex + i);
+            }
+        }
+        // For each target neuron
+        for (const auto& to_n : toNeurons) {
+            for (int j = 0; j < to_n.count; j++) {
+                int targetIdx = to_n.startIndex + j;
+                std::vector<int> availableSources;
+                // Build list of available sources
+                availableSources.reserve(allSourceIndices.size());
+                for (int srcIdx : allSourceIndices) {
+                    if (excludeSelf && srcIdx == targetIdx) {
+                        continue;
+                    }
+                    if (existingConnections[srcIdx].count(targetIdx) == 0) {
+                        availableSources.push_back(srcIdx);
+                    }
+                }
+                int realCount = std::min(count, static_cast<int>(availableSources.size()));
+                for (int k = 0; k < realCount; k++) {
+                    // Select a random source from available sources
+                    int randIndex = randGen.nextInt(static_cast<int>(availableSources.size()) - 1);
+                    int sourceIdx = availableSources[randIndex];
+                    double weight = weightGen.generate();
+                    data.synapticTargets[sourceIdx].push_back(targetIdx);
+                    data.synapticWeights[sourceIdx].push_back(weight);
+                    // Replace the removed element with the last one for O(1) removal
+                    availableSources[randIndex] = availableSources.back();
+                    availableSources.pop_back();
+                }
+            }
+        }
     }
     else if (ruleType == "fixed_out_degree") {
-
+        int count = getNodeAs<int>(ruleNode, "count", "rule");
+        if (count <= 0) {
+            throw SNNParseException("'count' musi byc dodatnie w regule 'fixed_out_degree'.", ruleNode);
+        }
+        Random& randGen = Random::getInstance();
+        // Create a list of all possible target indices
+        std::vector<int> allTargetIndices;
+        allTargetIndices.reserve(toCount);
+        for (const auto& to_n : toNeurons) {
+            for (int j = 0; j < to_n.count; j++) {
+                allTargetIndices.push_back(to_n.startIndex + j);
+            }
+        }
+        // For each source neuron
+        for (const auto& from_n : fromNeurons) {
+            for (int i = 0; i < from_n.count; i++) {
+                int sourceIdx = from_n.startIndex + i;
+                std::vector<int> availableTargets;
+                for (int tgtIdx : allTargetIndices) {
+                    if (excludeSelf && sourceIdx == tgtIdx) {
+                        continue;
+                    }
+                    if (existingConnections[sourceIdx].count(tgtIdx) == 0) {
+                        availableTargets.push_back(tgtIdx);
+                    }
+                }
+                int realCount = std::min(count, static_cast<int>(availableTargets.size()));
+                data.synapticTargets[sourceIdx].reserve(data.synapticTargets[sourceIdx].size() + realCount);
+                data.synapticWeights[sourceIdx].reserve(data.synapticWeights[sourceIdx].size() + realCount);
+                for (int k = 0; k < realCount; k++) {
+                    // Select a random target from available targets
+                    int randIndex = randGen.nextInt(static_cast<int>(availableTargets.size()) - 1);
+                    int targetIdx = availableTargets[randIndex];
+                    double weight = weightGen.generate();
+                    data.synapticTargets[sourceIdx].push_back(targetIdx);
+                    data.synapticWeights[sourceIdx].push_back(weight);
+                    // Replace the removed element with the last one for O(1) removal
+                    availableTargets[randIndex] = availableTargets.back();
+                    availableTargets.pop_back();
+                }
+            }
+        }
     }
     else {
         throw SNNParseException("Nieznany typ reguly polaczen '" + ruleType + "' w 'rule'.", ruleNode);
