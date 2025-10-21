@@ -1,6 +1,9 @@
 #include "NetworkTopologyLoader.hpp"
 #include <iostream>
 #include "Random.hpp"
+#include <algorithm>
+#include <vector>
+#include <utility>
 
 template<typename T>
 T NetworkTopologyLoader::getNodeAs(const YAML::Node& parent, const std::string& key, const std::string& contextPath) const {
@@ -228,6 +231,23 @@ void NetworkTopologyLoader::loadConnectionsData(const YAML::Node& connectionsNod
             createConnectionsBetweenGroups(*pair.first, *pair.second, fromType, toType, ruleNode, weightGen, excludeSelf);
         }
         printf("\n");
+    }
+
+    // After loading configuration, simplify the structure of existingConnections
+    for (int i = 0; i < data.synapticTargets.size(); i++) {
+        // Sort synapticTargets and corresponding synapticWeights
+        std::vector<std::pair<int, double>> pairs;
+        pairs.reserve(data.synapticTargets[i].size());
+        for (int j = 0; j < data.synapticTargets[i].size(); ++j) {
+            pairs.emplace_back(data.synapticTargets[i][j], data.synapticWeights[i][j]);
+        }
+        std::sort(pairs.begin(), pairs.end());
+        for (int j = 0; j < pairs.size(); ++j) {
+            data.synapticTargets[i][j] = pairs[j].first;
+            data.synapticWeights[i][j] = pairs[j].second;
+        }
+        data.synapticTargets[i].shrink_to_fit();
+        data.synapticWeights[i].shrink_to_fit();
     }
 }
 
