@@ -45,6 +45,7 @@ private:
     std::vector<std::vector<double>> synapticWeights;
 
 public:
+    void step(double dt); // Advance the simulation by dt milliseconds
     explicit SNN(const std::string& filename);
     SNN(const SNN&) = delete;               // Disable copy constructor
     SNN& operator=(const SNN&) = delete;    // Disable copy assignment
